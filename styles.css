@@ -283,7 +283,9 @@ body[data-scene="4"] .film-video, body[data-scene="4"] .film-stills { opacity: 0
 /* Progreso (P0-4 / P1-4). Un folio y una timeline para los tres mundos: el film de Eventos,
    el riel de casos y el mundo de Productos. Antes eran cuatro copias de dos componentes con
    anclaje, color y opacidad expresados distinto en cada superficie. */
-.folio { position: absolute; z-index: var(--z-chrome); top: calc(var(--header-h) + 16px); right: var(--page-x); left: var(--page-x); display: flex; justify-content: space-between; color: var(--folio-label); font-size: var(--t-micro); font-weight: 600; letter-spacing: var(--ls-folio); text-transform: uppercase; opacity: var(--folio-opacity); transition: color var(--d-scene) var(--ease-out), opacity var(--d-scene) var(--ease-out); }
+.folio { position: absolute; z-index: var(--z-chrome); top: calc(var(--header-h) + 16px); right: var(--page-x); left: var(--page-x); display: flex; justify-content: space-between; color: var(--folio-label); font-size: var(--t-micro); font-weight: 600; letter-spacing: var(--ls-folio); text-transform: uppercase; opacity: var(--folio-opacity); transition: color var(--d-scene) var(--ease-out), opacity var(--d-fast) var(--ease-out); }
+/* Cede cuando la copia le pasa por debajo: dos tipografias en la misma banda es ruido. */
+.folio.is-shy { opacity: 0; }
 .folio > span:first-child { position: absolute; left: 50%; transform: translateX(-50%); }
 .folio__count { margin-left: auto; }
 .folio__count b { color: var(--folio-mark); font-weight: inherit; transition: color var(--d-scene) var(--ease-out); }
@@ -293,7 +295,9 @@ body[data-scene="4"] .film-video, body[data-scene="4"] .film-stills { opacity: 0
 .timeline--rail { top: calc(100svh - 24px); bottom: auto; }
 
 .film-track { position: relative; z-index: var(--z-raise); margin-top: -100svh; }
-.film-coda { height: 100svh; }
+/* Rampa de salida del film, no una pantalla en blanco: con 100svh el viewport se
+   quedaba 650px de scroll sin nada que leer. */
+.film-coda { height: 38svh; }
 .film-scene { position: relative; min-height: 100svh; padding: var(--header-h) var(--page-x) 52px; scroll-snap-align: center; }
 .film-scene__copy { position: absolute; z-index: var(--z-content); max-width: min(760px, 60vw); }
 .film-scene h1, .film-scene h2 { margin: 0; font-family: var(--display); font-weight: 400; letter-spacing: var(--ls-display); line-height: var(--lh-hero); text-wrap: balance; }
@@ -362,6 +366,16 @@ body[data-scene="4"] .film-video, body[data-scene="4"] .film-stills { opacity: 0
 .js-ready .film-scene.is-active .scene-caption,
 .js-ready .film-scene.is-active .location-note,
 .js-ready .film-scene.is-active .service-score { transition-delay: calc(var(--i, 0) * var(--stagger)); }
+/* Vuelco a papel: la copia del film se retira con el cambio de mundo en vez de esperar a
+   salir por arriba. Sin esto la rampa de salida necesita una pantalla entera vacia para
+   que el vuelco no caiga sobre texto claro. */
+.js-ready .page-events[data-scene="4"] .film-scene.is-active .film-heading__line,
+.js-ready .page-events[data-scene="4"] .film-scene.is-active .film-scene__copy > p,
+.js-ready .page-events[data-scene="4"] .film-scene.is-active .film-scene__copy > .scene-actions,
+.js-ready .page-events[data-scene="4"] .film-scene.is-active .film-scene__copy > .action,
+.js-ready .page-events[data-scene="4"] .film-scene.is-active .scene-caption,
+.js-ready .page-events[data-scene="4"] .film-scene.is-active .location-note,
+.js-ready .page-events[data-scene="4"] .film-scene.is-active .service-score { opacity: 0; transform: translate3d(0, -20px, 0); transition-delay: 0s; }
 .js-ready .film-heading__line:nth-child(2) { --i: 1; }
 .js-ready .film-heading__line:nth-child(3) { --i: 2; }
 .js-ready .film-heading__line:nth-child(4) { --i: 3; }
@@ -754,6 +768,9 @@ html.reveal-ready .product-facts__ledger div:nth-child(3), html.reveal-ready .pr
 /* Events 2026: culinary narrative, real proof and interruption-safe media. */
 .page-events .site-header::after { display: none; }
 .page-events .site-header.is-scrolled:not(.is-solid) { background: color-mix(in srgb, var(--ink-deep) 72%, transparent); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
+/* En la coda el mundo pasa a papel y el header vuelve a tinta (l. 237-239): la barra
+   oscura del scroll lo dejaria tinta sobre tinta --1.03:1 medido--. */
+.page-events[data-scene="4"] .site-header.is-scrolled:not(.is-solid) { background: color-mix(in srgb, var(--paper) 82%, transparent); }
 .page-events .film-stills { z-index: var(--z-base); opacity: 1; }
 .page-events .film-video { z-index: var(--z-raise); opacity: 0; transition: opacity var(--d-scene) var(--ease-out), filter var(--d-scene) var(--ease-out), transform var(--d-scene) var(--ease-out); }
 .page-events .film-video.is-current { opacity: 1; }
@@ -850,7 +867,8 @@ html.reveal-ready .is-in-view [data-reveal-item] { opacity: 1; }
   .page-events .film-scene h1,
   .page-events .film-scene h2,
   .page-events .film-scene--night h2 { max-width: 10ch; }
-  .page-events .film-scene--rhythm .service-score { top: 103svh; right: var(--page-x); bottom: auto; left: var(--page-x); display: block; width: auto; }
+  /* Anclada abajo como el resto de lo secundario en movil: un top en svh no sabe cuanto mide la copia. */
+  .page-events .film-scene--rhythm .service-score { right: var(--page-x); left: var(--page-x); display: block; width: auto; }
   .page-events .service-score li { grid-template-columns: .7fr 1fr; padding: var(--s-3) 0; }
   .page-events .film-scene--table .scene-caption { --caption-b: 34px; }
   .page-events .film-scene--night .location-note { --caption-b: 30px; }
@@ -883,7 +901,6 @@ html.reveal-ready .is-in-view [data-reveal-item] { opacity: 1; }
   .page-events .film-scene--rhythm { min-height: 154svh; }
   .page-events .film-scene--rhythm .film-scene__copy,
   .page-events .film-scene--table .film-scene__copy { top: 66svh; }
-  .page-events .film-scene--rhythm .service-score { top: 104svh; }
   .page-events .film-scene__copy > p { max-width: 33ch; }
   .page-events .film-heading__line--deep-indent { left: 0; margin-left: var(--s-2); }
   .page-events .film-scene--night .film-scene__copy { bottom: 132px; }
@@ -921,6 +938,7 @@ html.reveal-ready .is-in-view [data-reveal-item] { opacity: 1; }
   .page-events .site-header:not(.is-solid),
   .page-events .site-header.is-scrolled:not(.is-solid),
   .site-header--paper { background: var(--ink-deep); color: var(--paper); }
+  .page-events[data-scene="4"] .site-header:not(.is-solid) { background: var(--paper); color: var(--ink); }
   .page-products .site-header.is-scrolled,
   .page-products[data-product-variant="tres-quesos"] .site-header { background: var(--paper); color: var(--ink); }
   .page-products .site-header.is-scrolled .brand img,

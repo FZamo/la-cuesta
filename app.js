@@ -195,6 +195,7 @@
   const coda = document.querySelector('[data-coda]');
   const label = document.querySelector('[data-scene-label]');
   const number = document.querySelector('[data-scene-number]');
+  const folio = label ? label.closest('.folio') : null;
   const progress = document.querySelector('[data-progress]');
   const acto = document.querySelector('[data-acto]');
   const actoRail = document.querySelector('[data-acto-rail]');
@@ -230,7 +231,9 @@
 
   let centers = [];
   let boundaries = [];
-  let codaCenter = 0;
+  let filmExitBoundary = 0;
+  let folioBand = null;
+  let folioObstaculos = [];
   let filmExit = false;
   let activeIndex = -1;
   let actoTop = 0;
@@ -254,6 +257,7 @@
   const MEDIA_PREROLL_SECONDS = .12;
   const MEDIA_PREROLL_TIMEOUT_MS = 1400;
   const SCENE_HYSTERESIS = .03;
+  const FOLIO_PAD = 28;  // 8 de aire + los 20px del reveal, que caen fuera de la caja del contenedor
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const mix = (start, end, amount) => start + (end - start) * amount;
@@ -261,7 +265,31 @@
   const measure = () => {
     centers = steps.map((step) => step.offsetTop + (step.offsetHeight / 2));
     boundaries = centers.slice(0, -1).map((center, index) => (center + centers[index + 1]) / 2);
-    codaCenter = coda ? coda.offsetTop + (coda.offsetHeight / 2) : 0;
+    // El mundo pasa a papel cuando las ultimas palabras del film salieron por arriba,
+    // no cuando lo dice la altura de la coda: la que manda es la legibilidad, y una
+    // altura en svh no sabe donde termina el texto.
+    const ultimo = steps[steps.length - 1];
+    const copia = ultimo ? ultimo.querySelector('.film-scene__copy') : null;
+    const piso = copia ? copia.offsetTop + copia.offsetHeight : 0;
+    // ...pero nunca despues de que el film empiece a soltarse: si el vuelco cae fuera de la
+    // pista sticky, la coda nunca llega a verse en papel y el cambio pasa fuera de cuadro.
+    const legible = ultimo ? ultimo.offsetTop + piso + (window.innerHeight * .5) : 0;
+    const pista = film.offsetHeight - (window.innerHeight * .85);
+    filmExitBoundary = coda && ultimo ? Math.min(legible, pista) : 0;
+    if (folio) {
+      // El folio vive en el stage sticky: su banda en viewport no cambia con el scroll.
+      // Lo que cambia es que la copia pasa por debajo, y ahi las dos tipografias se ensucian.
+      const marco = folio.getBoundingClientRect();
+      folioBand = [marco.top - FOLIO_PAD, marco.bottom + FOLIO_PAD];
+      // Por offsetTop y no por getBoundingClientRect: la escena inactiva esta corrida 20px
+      // por su transform de reveal, y una banda medida con el transform puesto llega tarde.
+      folioObstaculos = [...film.querySelectorAll('.film-scene__copy, .service-score, .scene-caption, .location-note')]
+        .map((bloque) => {
+          let alto = 0;
+          for (let nodo = bloque; nodo; nodo = nodo.offsetParent) alto += nodo.offsetTop;
+          return [alto, alto + bloque.offsetHeight];
+        });
+    }
     if (acto) {
       const actoRect = acto.getBoundingClientRect();
       actoTop = actoRect.top + window.scrollY;
@@ -549,11 +577,9 @@
     const anchored = anchoredScene(cursor, fromIndex, toIndex, amount);
     setScene(anchored);
 
-    if (codaCenter) {
-      const lastCenter = centers[centers.length - 1];
-      const exitBoundary = (lastCenter + codaCenter) / 2;
-      const exitHysteresis = Math.min(window.innerHeight * .04, Math.max(1, codaCenter - lastCenter) * SCENE_HYSTERESIS);
-      filmExit = filmExit ? cursor > exitBoundary - exitHysteresis : cursor >= exitBoundary + exitHysteresis;
+    if (filmExitBoundary) {
+      const exitHysteresis = window.innerHeight * .04;
+      filmExit = filmExit ? cursor > filmExitBoundary - exitHysteresis : cursor >= filmExitBoundary + exitHysteresis;
       const sceneAttr = filmExit ? '4' : String(activeIndex);
       if (document.body.dataset.scene !== sceneAttr) document.body.dataset.scene = sceneAttr;
     }
@@ -591,6 +617,11 @@
           if (caseCaption) caseCaption.textContent = caseBeats[activeBeat].dataset.caption || '';
         }
       }
+    }
+    if (folio && folioBand) {
+      const desde = folioBand[0] + window.scrollY;
+      const hasta = folioBand[1] + window.scrollY;
+      folio.classList.toggle('is-shy', folioObstaculos.some(([alto, bajo]) => bajo > desde && alto < hasta));
     }
     if (header) {
       header.classList.toggle('is-scrolled', window.scrollY > 20);
