@@ -102,6 +102,10 @@
   --t-monument: clamp(6.4rem, 15vw, 14rem); /* excepcion declarada: nombre de variedad, pieza de arte */
   --t-hero: clamp(3rem, min(7vw, 12.2svh), 7.5rem); /* H1 y titular de escena: el termino svh evita que el titular se meta bajo el header en viewports bajos */
   --t-display: clamp(3rem, 6.5vw, 6rem);   /* H2 de seccion, ambas paginas */
+  --t-stage: clamp(3rem, min(6.5vw, 11svh), 6rem); /* H2 dentro del film-stage: mismo escalon que
+     --t-display, mas el termino svh que --t-hero ya declara. El stage es sticky, mide 100svh y
+     recorta con overflow:hidden, asi que su titular tiene que encoger con el alto del viewport
+     o sale por arriba (H19). 11svh < 12.2svh mantiene el h2 por debajo del h1 a toda altura. */
   --t-title: clamp(2.6rem, 5vw, 5rem);     /* H3 de caso y de bloque */
   --t-subtitle: clamp(1.75rem, 4vw, 3.75rem);
   --t-lead: clamp(1.65rem, 2.7vw, 2.75rem);
@@ -254,7 +258,13 @@ i.climate-seam--tail { bottom: 0; height: var(--seam-h-tail); background: linear
 .film-backdrop { object-fit: cover; opacity: 0; filter: saturate(.78) contrast(1.03) brightness(.54) blur(10px); transform: scale(1.065); transition: opacity var(--d-scene) var(--ease-out), filter var(--d-scene) var(--ease-out), transform var(--d-scene) var(--ease-out); }
 .film-backdrop.is-active { opacity: .88; transform: scale(1.035); }
 
-.film-wash { position: absolute; inset: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--ink-deep) 92%, transparent) 0%, color-mix(in srgb, var(--ink-deep) 58%, transparent) 43%, color-mix(in srgb, var(--ink-deep) 14%, transparent) 100%); transition: background var(--d-scene) var(--ease-out); }
+/* z-index: el lavado es hermano de .film-aperture y va ANTES en el marcado; la apertura abre
+   contexto de apilado con contain:paint, asi que a z auto el video la tapaba entera y el
+   lavado no llegaba a la superficie que tenia que lavar: un negro 100% aca no cambiaba ni
+   un punto la luminancia bajo el titular (H17). Con --z-raise empata con .film-track y el
+   marcado decide: lavado sobre el video, copy sobre el lavado. Los gradientes no se tocan.
+   Verificable: python .claude/tools/verificar-lavado.py */
+.film-wash { position: absolute; z-index: var(--z-raise); inset: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--ink-deep) 92%, transparent) 0%, color-mix(in srgb, var(--ink-deep) 58%, transparent) 43%, color-mix(in srgb, var(--ink-deep) 14%, transparent) 100%); transition: background var(--d-scene) var(--ease-out); }
 body[data-scene="1"] .film-stage { background: var(--s1-stage); }
 body[data-scene="1"] .film-wash { background: linear-gradient(110deg, color-mix(in srgb, var(--s1-wash-deep) 92%, transparent) 0%, color-mix(in srgb, var(--s1-wash-mid) 44%, transparent) 48%, color-mix(in srgb, var(--ink-deep) 20%, transparent) 100%); }
 body[data-scene="2"] .film-stage { background: var(--s2-stage); }
@@ -299,23 +309,39 @@ body[data-scene="4"] .film-video, body[data-scene="4"] .film-stills { opacity: 0
    quedaba 650px de scroll sin nada que leer. */
 .film-coda { height: 38svh; }
 .film-scene { position: relative; min-height: 100svh; padding: var(--header-h) var(--page-x) 52px; scroll-snap-align: center; }
-.film-scene__copy { position: absolute; z-index: var(--z-content); max-width: min(760px, 60vw); }
+/* El tope base estaba en 760px y caponeaba las cuatro escenas por encima de su width propio:
+   sube a lo que necesita la linea autorada mas larga del sitio ("Nosotros sostenemos"). */
+.film-scene__copy { position: absolute; z-index: var(--z-content); max-width: min(1010px, 70vw); }
 .film-scene h1, .film-scene h2 { margin: 0; font-family: var(--display); font-weight: 400; letter-spacing: var(--ls-display); line-height: var(--lh-hero); text-wrap: balance; }
-.film-scene h1, .film-scene h2 { font-size: var(--t-hero); }
+.film-scene h1 { font-size: var(--t-hero); }
+/* El h1 y los h2 del film median los dos --t-hero: el titular de la pagina y los de escena eran
+   indistinguibles, y entre 18px y 120px no habia ningun escalon (H18). --t-display es el token
+   declarado para "H2 de seccion, ambas paginas"; --t-stage es ese mismo escalon con el
+   guardado de alto que el stage necesita (H19). */
+.film-scene h2 { font-size: var(--t-stage); line-height: var(--lh-display); }
 .film-heading__line { display: block; }
 .film-heading__line--accent { margin-left: var(--indent-line); color: var(--accent); font-style: italic; }
 .film-heading__line--deep-indent { margin-left: var(--indent-line-deep); }
-.film-scene__copy > p { max-width: 42ch; margin: var(--s-5) 0 0; color: var(--on-surface-muted); font-size: var(--t-body); line-height: 1.62; }
-.film-scene--opening .film-scene__copy { bottom: clamp(84px, 11vh, 112px); left: var(--page-x); width: min(650px, 45vw); }
+/* La frase de escena sube de --t-body a --t-quote: es el escalon intermedio de H18, y el
+   contenido para ocuparlo ya estaba en las cuatro escenas. Se reusa --t-quote en vez de sumar
+   un token nuevo con el mismo valor, que es la deduplicacion que hizo P1-1. */
+.film-scene__copy > p { max-width: 54ch; margin: var(--s-5) 0 0; color: var(--on-surface-muted); font-size: var(--t-quote); line-height: 1.62; }
+/* Los anchos de escena salen de la linea autorada mas larga de cada titular, medida en el tipo
+   real: si la caja es mas angosta que la linea, el <span class="film-heading__line"> se re-quiebra
+   y el titular termina a una palabra por linea (legibilidad-jerarquia-2026-09-04.md H15). */
+.film-scene--opening .film-scene__copy { bottom: clamp(84px, 11vh, 112px); left: var(--page-x); width: min(850px, 50vw); }
 .film-scene--opening h1 { max-width: 10.5ch; }
-.film-scene--rhythm .film-scene__copy { top: 18vh; left: var(--page-x); width: min(590px, 43vw); }
-.film-scene--rhythm h2 { max-width: 9ch; }
-.film-scene--table .film-scene__copy { top: 24vh; right: var(--page-x); width: min(610px, 44vw); text-align: right; }
+.film-scene--rhythm .film-scene__copy { top: 18vh; left: var(--page-x); width: min(800px, 54vw); }
+.film-scene--rhythm h2 { max-width: 12ch; }
+.film-scene--table .film-scene__copy { top: 24vh; right: var(--page-x); width: min(650px, 45vw); text-align: right; }
 .film-scene--table h2 { max-width: 9.5ch; margin-left: auto; }
 .film-scene--table .film-scene__copy > p { margin-left: auto; }
 .film-scene--table .film-heading__line--accent { margin-right: var(--indent-line); margin-left: 0; }
-.film-scene--night .film-scene__copy { bottom: clamp(84px, 11vh, 112px); left: 50%; width: min(820px, 72vw); transform: translateX(-50%); text-align: center; }
-.film-scene--night h2 { max-width: 10ch; }
+/* El piso son 104px y no 84px porque abajo esta la .location-note, que ocupa una banda de
+   91px medidos: 52px de --caption-b mas 39px de sus dos lineas, constante en todo el rango
+   desktop. Con 84px el copy entraba 7px en esa banda a todo alto <=763 (H20). */
+.film-scene--night .film-scene__copy { bottom: clamp(104px, 11vh, 112px); left: 50%; width: min(1010px, 72vw); transform: translateX(-50%); text-align: center; }
+.film-scene--night h2 { max-width: 14.5ch; }
 .film-scene--night .film-scene__copy > p { margin-right: auto; margin-left: auto; }
 .film-scene--night .film-heading__line--accent { margin-right: auto; margin-left: auto; }
 .film-scene--night .film-heading__line--deep-indent { position: relative; left: clamp(1.5rem, 4vw, 4rem); }
@@ -418,7 +444,11 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--maize); outline
   body[data-scene="4"] .site-nav { background: var(--paper); color: var(--ink); }
 
   .film-scene { min-height: 100svh; padding-bottom: 44px; }
-  .film-scene__copy, .film-scene--opening .film-scene__copy, .film-scene--rhythm .film-scene__copy, .film-scene--table .film-scene__copy { top: auto; right: var(--page-x); bottom: 78px; left: var(--page-x); max-width: none; text-align: left; }
+  /* width: auto es la mitad que faltaba: sin el reset sobrevive el width de desktop (45vw en
+     --opening, 43vw en --rhythm, 44vw en --table) y el titular se compone en 161-169px de un
+     contenedor de 335px, asi que "Antes de" parte en dos. --night ya lo reseteaba abajo
+     (legibilidad-jerarquia-2026-09-04.md H15). La banda de tablet redeclara sus anchos despues. */
+  .film-scene__copy, .film-scene--opening .film-scene__copy, .film-scene--rhythm .film-scene__copy, .film-scene--table .film-scene__copy { top: auto; right: var(--page-x); bottom: 78px; left: var(--page-x); max-width: none; width: auto; text-align: left; }
   .film-scene--night .film-scene__copy { top: auto; right: var(--page-x); bottom: 76px; left: var(--page-x); width: auto; text-align: left; }
 
   .film-scene h1, .film-scene h2, .film-scene--night h2 { max-width: 11ch; margin: 0; }
@@ -447,9 +477,9 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--maize); outline
   .film-scene--opening .film-scene__copy,
   .film-scene--rhythm .film-scene__copy,
   .film-scene--table .film-scene__copy { right: auto; bottom: auto; max-width: none; text-align: left; }
-  .film-scene--opening .film-scene__copy { bottom: 84px; left: var(--page-x); width: 46vw; }
-  .film-scene--rhythm .film-scene__copy { top: 18vh; left: var(--page-x); width: 42vw; }
-  .film-scene--table .film-scene__copy { top: 24vh; right: var(--page-x); left: auto; width: 43vw; text-align: right; }
+  .film-scene--opening .film-scene__copy { bottom: 84px; left: var(--page-x); width: 52vw; }
+  .film-scene--rhythm .film-scene__copy { top: 18vh; left: var(--page-x); width: 56vw; }
+  .film-scene--table .film-scene__copy { top: 24vh; right: var(--page-x); left: auto; width: 47vw; text-align: right; }
   .film-scene--table h2 { margin-left: auto; }
   .film-scene--table .film-scene__copy > p { margin-left: auto; }
   .film-scene--night .film-scene__copy { top: auto; right: auto; bottom: 82px; left: 50%; width: 76vw; transform: translateX(-50%); text-align: center; }
@@ -869,7 +899,7 @@ html.reveal-ready .is-in-view [data-reveal-item] { opacity: 1; }
   .page-events .film-scene--night .film-scene__copy { top: auto; right: var(--page-x); bottom: 118px; left: var(--page-x); width: auto; transform: none; text-align: left; }
   .page-events .film-scene h1,
   .page-events .film-scene h2,
-  .page-events .film-scene--night h2 { max-width: 10ch; }
+  .page-events .film-scene--night h2 { max-width: 14.5ch; }
   /* Anclada abajo como el resto de lo secundario en movil: un top en svh no sabe cuanto mide la copia. */
   .page-events .film-scene--rhythm .service-score { right: var(--page-x); left: var(--page-x); display: block; width: auto; }
   .page-events .service-score li { grid-template-columns: .7fr 1fr; padding: var(--s-3) 0; }
