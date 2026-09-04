@@ -401,10 +401,13 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--maize); outline
           --t-nav: var(--t-body);
           --glass: blur(12px) saturate(1.12);
           --section-y-loose: clamp(8rem, 24vw, 11rem); }
-  .site-header { grid-template-columns: 1fr auto; gap: var(--s-4); }
-  .brand { width: 104px; }
-  .header-action { display: none; }
-  .menu-toggle { position: relative; z-index: var(--z-content); display: inline-flex; min-width: 54px; min-height: 44px; align-items: center; justify-content: flex-end; gap: var(--s-3); font-size: var(--t-ui); font-weight: 800; letter-spacing: var(--ls-ui); text-transform: uppercase; }
+  .site-header { grid-template-columns: auto 1fr auto; gap: var(--s-4); }
+  .brand { grid-area: 1 / 1; width: 104px; }
+  /* La via de contacto viaja en el header fijo: ocultarla en movil dejaba 11,7 pantallas
+     sin ninguna forma de convertir (ux-conversion-2026-09-04.md H1). El z-index la sostiene
+     sobre el panel del menu abierto, que es justo donde se la busca. */
+  .header-action { grid-area: 1 / 2; justify-self: end; position: relative; z-index: var(--z-content); }
+  .menu-toggle { grid-area: 1 / 3; position: relative; z-index: var(--z-content); display: inline-flex; min-width: 54px; min-height: 44px; align-items: center; justify-content: flex-end; gap: var(--s-3); font-size: var(--t-ui); font-weight: 800; letter-spacing: var(--ls-ui); text-transform: uppercase; }
   .menu-toggle__mark { display: grid; gap: 4px; }
   .menu-toggle__mark i { display: block; width: 18px; height: 1px; background: currentColor; transition: transform var(--d-fast) var(--ease-in-out); }
   .menu-toggle[aria-expanded="true"] .menu-toggle__mark i:first-child { transform: translateY(2.5px) rotate(45deg); }
