@@ -68,6 +68,25 @@
   --d-scene: 900ms;   /* la escena y el mundo: crossfade, luz del header, transform del reveal */
   --d-reveal: 1200ms; /* el unico paso por encima de la escena: fade y clip-path de cierre */
   --stagger: 60ms;    /* toda cascada es calc(var(--i) * var(--stagger)); sin delays literales */
+  /* Salida del film a papel (P3). Era binaria: al cruzar el borde se repintaba el 99.4%
+     de la pantalla en un cuadro, 181.8 de delta medio contra una mediana de 5.57 en el
+     resto de la pagina — 32.6x, el unico acantilado de index.html. Media amplitud de la
+     rampa, en fracciones del viewport. El presupuesto no es el alto del film sino el
+     tramo en que el stage sigue pegado con la escena night ya establecida: scrollY 2700
+     a 3650 a 1080 de alto, 950px. .35 de cada lado gasta 756 de esos 950 y deja el pico
+     de la salida por debajo del cambio de escena 2-3, que mide 33.9 y es el gesto que la
+     pagina ya usa. Con .28 a 900 de alto la banda se comprimia y el pico volvia a 45.
+     Verificable: python .claude/tools/verificar-costuras.py */
+  --film-exit-band: .35;
+  /* Donde la copia de la escena night termina de irse, en unidades de --film-exit.
+     La rampa aclara el fondo mientras la copia sigue puesta: medido, el contraste de
+     la copia contra su fondo efectivo caia de 9.2 a 1.78 (umbral 3.0) porque la copia
+     recien salia con el vuelco de data-scene, a media rampa. Se va antes, por el
+     contenedor. El fondo cruza 3.0 recien en --film-exit .37; .30 deja margen.
+     La otra salida posible -- atrasar la entrada del papel -- se midio y se descarto:
+     mueve el mismo cambio en menos scroll y sube el pico a 45.9 en 1440x900, por
+     encima del techo de 45. Verificable: python .claude/tools/verificar-costuras.py */
+  --film-copy-clear: .30;
   /* Timeline narrativa de Productos (P1-5). Definida UNA vez, aca; app.js la lee de :root.
      Antes vivia en app.js repartida entre el umbral y los destinos de click. Un breakpoint
      puede recalibrarla como recalibra la escala: recalibrar el token, no reescribir el JS.
@@ -247,9 +266,12 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 .site-header.is-scrolled::after { transform: scaleX(1); }
 .site-header.is-solid { background: var(--paper); color: var(--ink); }
 .site-header.is-solid::after { background: var(--line-dark); }
-.site-header.is-solid .brand img { filter: brightness(0) saturate(100%); }
-.brand { position: relative; z-index: var(--z-content); display: block; width: 118px; }
-.brand img { width: 100%; height: auto; transition: filter var(--d-scene) var(--ease-out); }
+/* El lockup del manual es un badge CIRCULAR, no la banda apaisada del knockout que
+   habia antes: a 118px de ancho media 118 de alto y no entraba en los 84 del header.
+   Se dimensiona para dejar 10px de aire arriba y abajo. Ya no hay filtro de tinta: el
+   disco maiz es su propio fondo y se lee igual sobre el video y sobre el papel. */
+.brand { position: relative; z-index: var(--z-content); display: block; width: 64px; }
+.brand img { width: 100%; height: auto; }
 .site-nav { display: flex; align-items: center; justify-content: center; gap: var(--gap-md); font-size: var(--t-nav); font-weight: 800; letter-spacing: var(--ls-ui); }
 .site-nav a, .header-action { text-decoration: none; }
 .site-nav a { opacity: .72; transition: opacity var(--d-instant) var(--ease-out); }
@@ -258,7 +280,6 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-lineca
 .menu-toggle { display: none; border: 0; background: transparent; color: inherit; font: inherit; }
 body[data-scene="4"] .site-header { color: var(--ink); }
 body[data-scene="4"] .site-header::after { background: var(--line-dark); }
-body[data-scene="4"] .brand img { filter: brightness(0) saturate(100%); }
 
 .film { position: relative; background: var(--ink-deep); }
 .film::after { content: ""; position: absolute; z-index: var(--z-content); right: 0; bottom: 0; left: 0; height: var(--seam-h-tail); background: linear-gradient(0deg, var(--paper) 0%, color-mix(in srgb, var(--paper) 0%, transparent) 100%); pointer-events: none; }
@@ -273,6 +294,14 @@ i.climate-seam--head { top: 0; height: var(--seam-h); background: linear-gradien
 i.climate-seam--tail { bottom: 0; height: var(--seam-h-tail); background: linear-gradient(0deg, var(--seam-from) 0%, color-mix(in srgb, var(--seam-from) 0%, transparent) 100%); --seam-from: var(--ink-deep); }
 .film-stage { position: sticky; z-index: var(--z-base); top: 0; height: 100svh; overflow: hidden; background: var(--ink-deep); transition: background-color var(--d-scene) var(--ease-out); }
 .film-backdrops, .film-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* El papel entra por detras de todo en una capa propia. El background de .film-stage tiene
+   transition de --d-scene: scrubbearlo lo haria perseguir al scroll con casi un segundo de
+   retraso. Una capa sin transition sigue al dedo. 46% de lo que quedaba del salto. */
+.film-stage::before { position: absolute; inset: 0; content: ""; background: var(--paper); opacity: var(--film-exit, 0); }
+/* Y el fondo se retira por el contenedor, por lo mismo: .film-backdrop transiciona su
+   opacidad para cruzar de escena a escena, y el retiro no puede pelearse con ese cruce.
+   .88 de la capa activa por .18 del contenedor = .16, el valor que tenia el vuelco. */
+.film-backdrops { opacity: calc(1 - var(--film-exit, 0) * .82); }
 .film-backdrop { object-fit: cover; opacity: 0; filter: saturate(.78) contrast(1.03) brightness(.54) blur(10px); transform: scale(1.065); transition: opacity var(--d-scene) var(--ease-out), filter var(--d-scene) var(--ease-out), transform var(--d-scene) var(--ease-out); }
 .film-backdrop.is-active { opacity: .88; transform: scale(1.035); }
 
@@ -289,9 +318,11 @@ body[data-scene="2"] .film-stage { background: var(--s2-stage); }
 body[data-scene="2"] .film-wash { background: linear-gradient(105deg, color-mix(in srgb, var(--s2-wash-deep) 82%, transparent) 0%, color-mix(in srgb, var(--s2-wash-mid) 35%, transparent) 58%, color-mix(in srgb, var(--s2-wash-tail) 34%, transparent) 100%); }
 body[data-scene="3"] .film-stage { background: var(--ink-deep); }
 body[data-scene="3"] .film-wash { background: linear-gradient(0deg, color-mix(in srgb, var(--ink-deep) 89%, transparent) 0%, color-mix(in srgb, var(--ink-deep) 30%, transparent) 62%, color-mix(in srgb, var(--ink-deep) 38%, transparent) 100%); }
-body[data-scene="4"] .film-stage { background: var(--paper); }
-body[data-scene="4"] .film-backdrop.is-active { opacity: .16; filter: saturate(.52) brightness(1.25) blur(24px); }
-body[data-scene="4"] .film-wash { background: linear-gradient(90deg, color-mix(in srgb, var(--paper) 97%, transparent) 0%, color-mix(in srgb, var(--paper) 82%, transparent) 50%, color-mix(in srgb, var(--paper) 22%, transparent) 100%); }
+body[data-scene="4"] .film-backdrop.is-active { filter: saturate(.52) brightness(1.25) blur(24px); }
+/* El papel entra por encima del lavado oscuro, no en lugar de el: un background no se
+   interpola entre gradientes distintos, asi que voltearlo es binario por definicion.
+   Dos capas cruzandose sobre --film-exit si se scrubbean. Aporta el 55% del acantilado. */
+.film-wash::after { position: absolute; inset: 0; content: ""; opacity: var(--film-exit, 0); background: linear-gradient(90deg, color-mix(in srgb, var(--paper) 97%, transparent) 0%, color-mix(in srgb, var(--paper) 82%, transparent) 50%, color-mix(in srgb, var(--paper) 22%, transparent) 100%); }
 
 .film-aperture { position: absolute; inset: 0; overflow: hidden; background: transparent; -webkit-mask-image: linear-gradient(90deg, transparent 0 var(--ap-l), var(--black) calc(var(--ap-l) + var(--ap-feather-l)), var(--black) calc(100% - var(--ap-r) - var(--ap-feather-r)), transparent calc(100% - var(--ap-r)) 100%); mask-image: linear-gradient(90deg, transparent 0 var(--ap-l), var(--black) calc(var(--ap-l) + var(--ap-feather-l)), var(--black) calc(100% - var(--ap-r) - var(--ap-feather-r)), transparent calc(100% - var(--ap-r)) 100%); contain: paint; }
 .film-aperture::after { position: absolute; z-index: var(--z-content); inset: 0; pointer-events: none; background: linear-gradient(0deg, color-mix(in srgb, var(--ink-deep) 72%, transparent) 0%, color-mix(in srgb, var(--ink-deep) 30%, transparent) 42%, transparent 70%); content: ""; opacity: 0; transition: opacity var(--d-scene) var(--ease-out); }
@@ -303,7 +334,9 @@ body[data-scene="3"] .film-aperture::after { opacity: 1; }
 .film-still { opacity: 0; filter: saturate(.78) contrast(1.04) brightness(.84); transition: opacity var(--d-scene) var(--ease-out); }
 .film-still.is-active { opacity: 1; }
 
-body[data-scene="4"] .film-video, body[data-scene="4"] .film-stills { opacity: 0; }
+/* El media se retira por el contenedor y no capa por capa: la opacidad de cada .film-video
+   la maneja el crossfade de app.js, y pisarla desde el scroll pelea con el. 23% del salto. */
+.film-aperture__media { opacity: calc(1 - var(--film-exit, 0)); }
 
 .video-fallback .film-stills { opacity: 1; }
 .video-fallback .film-video { opacity: 0; }
@@ -317,12 +350,18 @@ body[data-scene="4"] .film-video, body[data-scene="4"] .film-stills { opacity: 0
 .folio > span:first-child { position: absolute; left: 50%; transform: translateX(-50%); }
 .folio__count { margin-left: auto; }
 .folio__count b { color: var(--folio-mark); font-weight: inherit; transition: color var(--d-scene) var(--ease-out); }
-.timeline { position: absolute; z-index: var(--z-chrome); right: var(--page-x); bottom: calc(24px + var(--safe-b)); left: var(--page-x); height: 1px; background: var(--rule); transition: background-color var(--d-scene) var(--ease-out); }
+.timeline { position: absolute; z-index: var(--z-chrome); top: var(--header-h); right: var(--page-x); left: var(--page-x); height: 1px; background: var(--rule); transition: background-color var(--d-scene) var(--ease-out); }
 .timeline span { display: block; width: 100%; height: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left center; will-change: transform; }
 /* Unica variante de anclaje: el riel de casos vive en un sticky de altura cero. */
-.timeline--rail { top: calc(100svh - 24px); bottom: auto; }
+.timeline--rail { top: calc(100svh - 24px); }
 
 .film-track { position: relative; z-index: var(--z-raise); margin-top: -100svh; }
+/* La copia se retira por el contenedor, como el media y el fondo: sus lineas cargan una
+   transition de --d-slow (la cascada de entrada, mas abajo) y scrubbear una propiedad con
+   transition la haria perseguir al scroll con casi un segundo de atraso. .film-track no
+   tiene ninguna, y ya crea contexto de apilado por z-index, asi que la opacidad no le
+   cambia el orden de pintado. Queda plena hasta la mitad de --film-copy-clear. */
+.film-track { opacity: clamp(0, calc((var(--film-copy-clear) - var(--film-exit, 0)) / var(--film-copy-clear) * 2), 1); }
 /* Rampa de salida del film, no una pantalla en blanco: con 100svh el viewport se
    quedaba 650px de scroll sin nada que leer. */
 .film-coda { height: 38svh; }
@@ -429,7 +468,11 @@ body[data-scene="4"] .film-video, body[data-scene="4"] .film-stills { opacity: 0
 .js-ready .film-scene__copy > .action { --i: 6; }
 
 .site-footer { position: relative; z-index: var(--z-chrome); display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--s-6); align-items: center; padding: var(--s-6) var(--page-x) calc(var(--s-6) + var(--safe-b)); border-top: 1px solid var(--line-light); background: var(--ink-deep); color: var(--paper-muted); font-size: var(--t-ui); }
-.footer-brand { display: block; width: 140px; }
+/* El pie lleva el mismo badge que el header: una sola marca por pagina. 102px no es
+   un numero de gusto, es el unico ancho al que el badge cuadrado deja el pie en los
+   mismos 167px que dejaba el knockout apaisado a 140. Y aca el slug respira: 5.3px de
+   caja contra los 3.3 del header. No necesita filtro, el disco es su propio fondo. */
+.footer-brand { display: block; width: 102px; }
 .footer-brand img { width: 100%; height: auto; }
 .site-footer p { margin: 0; text-align: center; }
 .footer-links { display: flex; justify-content: flex-end; gap: var(--s-5); }
@@ -446,7 +489,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--maize); outline
           --glass: blur(12px) saturate(1.12);
           --section-y-loose: clamp(8rem, 24vw, 11rem); }
   .site-header { grid-template-columns: auto 1fr auto; gap: var(--s-4); }
-  .brand { grid-area: 1 / 1; width: 104px; }
+  .brand { grid-area: 1 / 1; width: 56px; }
   /* La via de contacto viaja en el header fijo: ocultarla en movil dejaba 11,7 pantallas
      sin ninguna forma de convertir (ux-conversion-2026-09-04.md H1). El z-index la sostiene
      sobre el panel del menu abierto, que es justo donde se la busca. */
@@ -474,7 +517,6 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--maize); outline
   .film-scene__copy > p { max-width: 34ch; margin-top: var(--s-4); line-height: 1.45; }
   .scene-actions { margin-top: var(--s-5); }
   .folio { top: calc(var(--header-h) + 10px); font-size: var(--t-ui); }
-  .timeline { bottom: 16px; }
   .film-scene--opening .scene-caption,
   .film-scene--table .scene-caption,
   .location-note { right: var(--page-x); left: var(--page-x); max-width: none; text-align: left; }
@@ -482,7 +524,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--maize); outline
   .service-score { display: none; }
   .film-wash { background: linear-gradient(0deg, color-mix(in srgb, var(--ink-deep) 96%, transparent) 0%, color-mix(in srgb, var(--ink-deep) 70%, transparent) 46%, color-mix(in srgb, var(--ink-deep) 8%, transparent) 82%); }
   body[data-scene="1"] .film-wash, body[data-scene="2"] .film-wash, body[data-scene="3"] .film-wash { background: linear-gradient(0deg, color-mix(in srgb, var(--ink-deep) 97%, transparent) 0%, color-mix(in srgb, var(--ink) 68%, transparent) 46%, color-mix(in srgb, var(--ink-deep) 7%, transparent) 83%); }
-  body[data-scene="4"] .film-wash { background: linear-gradient(0deg, color-mix(in srgb, var(--paper) 98%, transparent) 0%, color-mix(in srgb, var(--paper) 78%, transparent) 48%, color-mix(in srgb, var(--paper) 10%, transparent) 84%); }
+  .film-wash::after { background: linear-gradient(0deg, color-mix(in srgb, var(--paper) 98%, transparent) 0%, color-mix(in srgb, var(--paper) 78%, transparent) 48%, color-mix(in srgb, var(--paper) 10%, transparent) 84%); }
   body[data-scene="4"] .folio { opacity: 0; }
   .film-backdrop { filter: saturate(.78) contrast(1.04) brightness(.56) blur(9px); }
 
@@ -532,7 +574,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--maize); outline
   html { scroll-behavior: auto; }
   .film-video { display: none; }
   .film-stills { opacity: 1; }
-  .film-backdrop, .film-wash, .site-header, .brand img, .js-ready .film-scene__copy, .js-ready .film-scene .scene-caption, .js-ready .film-scene .location-note, .js-ready .film-scene .service-score { transition: none; }
+  .film-backdrop, .film-wash, .site-header, .js-ready .film-scene__copy, .js-ready .film-scene .scene-caption, .js-ready .film-scene .location-note, .js-ready .film-scene .service-score { transition: none; }
   .js-ready .film-scene__copy, .js-ready .film-scene .scene-caption, .js-ready .film-scene .location-note, .js-ready .film-scene .service-score { opacity: 1; filter: none; transform: none; }
   .action:hover, .action:focus-visible, .text-link:hover, .text-link:focus-visible, .header-action:hover, .header-action:focus-visible { transform: none; }
 }
@@ -549,11 +591,8 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--maize); outline
 .page-products ::-webkit-scrollbar-track { background: var(--paper); }
 .page-products ::-webkit-scrollbar-thumb { border-color: var(--paper); }
 .site-header--paper { color: var(--paper); background: color-mix(in srgb, var(--ink-deep) 48%, transparent); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
-.site-header--paper .brand img { filter: none; }
 .page-products .site-header.is-scrolled { background: color-mix(in srgb, var(--paper) 82%, transparent); color: var(--ink); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
-.page-products .site-header.is-scrolled .brand img { filter: brightness(0) saturate(100%); }
 .page-products[data-product-variant="tres-quesos"] .site-header { color: var(--ink); background: color-mix(in srgb, var(--paper) 68%, transparent); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
-.page-products[data-product-variant="tres-quesos"] .site-header .brand img { filter: brightness(0) saturate(100%); }
 .page-products.is-product-seam .site-header { opacity: 0; pointer-events: none; }
 .products-main { background: var(--paper); }
 
@@ -632,7 +671,6 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--maize); outline
 
 html:not(.js-ready) .product-world__stage { overflow: visible; }
 html:not(.js-ready) .page-products .site-header { color: var(--ink); background: color-mix(in srgb, var(--paper) 96%, transparent); }
-html:not(.js-ready) .page-products .site-header .brand img { filter: brightness(0) saturate(100%); }
 html:not(.js-ready) .product-prologue { position: relative; top: auto; left: auto; display: flex; min-height: 100svh; flex-direction: column; justify-content: center; padding: calc(var(--header-h) + var(--s-6)) var(--page-x) var(--s-9); }
 html:not(.js-ready) .product-prologue__note { position: static; margin: var(--s-6) 0 0 auto; }
 html:not(.js-ready) .product-variant { pointer-events: auto; }
@@ -836,7 +874,6 @@ html.reveal-ready .product-facts__ledger div:nth-child(3), html.reveal-ready .pr
 .page-events .film-stills { z-index: var(--z-base); opacity: 1; }
 .page-events .film-video { z-index: var(--z-raise); opacity: 0; transition: opacity var(--d-scene) var(--ease-out), filter var(--d-scene) var(--ease-out), transform var(--d-scene) var(--ease-out); }
 .page-events .film-video.is-current { opacity: 1; }
-.page-events[data-scene="4"] .film-video.is-current { opacity: 0; }
 .page-events .video-fallback .film-video { opacity: 0; }
 .page-events .film-aperture::after { z-index: var(--z-chrome); }
 
@@ -1003,6 +1040,4 @@ html.reveal-ready .is-in-view [data-reveal-item] { opacity: 1; }
   .page-events[data-scene="4"] .site-header:not(.is-solid) { background: var(--paper); color: var(--ink); }
   .page-products .site-header.is-scrolled,
   .page-products[data-product-variant="tres-quesos"] .site-header { background: var(--paper); color: var(--ink); }
-  .page-products .site-header.is-scrolled .brand img,
-  .page-products[data-product-variant="tres-quesos"] .site-header .brand img { filter: brightness(0) saturate(100%); }
 }

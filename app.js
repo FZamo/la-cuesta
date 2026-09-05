@@ -254,6 +254,7 @@
   let scrollDirection = 1;
   let lastCursor = 0;
   const MEDIA_CROSSFADE_MS = readToken('--d-scene', 900); // = var(--d-scene) de styles.css
+  const FILM_EXIT_BAND = readToken('--film-exit-band', .28); // = var(--film-exit-band)
   const MEDIA_PREROLL_SECONDS = .12;
   const MEDIA_PREROLL_TIMEOUT_MS = 1400;
   const SCENE_HYSTERESIS = .03;
@@ -578,6 +579,18 @@
     setScene(anchored);
 
     if (filmExitBoundary) {
+      // El mundo pasaba a papel de un cuadro al otro: 99.4% de la pantalla repintada,
+      // 181.8 de delta contra 5.57 de mediana. El mismo cruce ahora publica una rampa
+      // scrubbeada por scroll; el atributo sigue volcando en el borde de siempre, asi
+      // que el clima, el header y la salida de la copia no cambian de momento.
+      const exitBand = window.innerHeight * FILM_EXIT_BAND;
+      const exitRamp = reduceMotion
+        ? (cursor >= filmExitBoundary ? 1 : 0)
+        : smooth(clamp((cursor - (filmExitBoundary - exitBand)) / (exitBand * 2), 0, 1));
+      // Se publica en .film y no en .film-stage: .film-track es HERMANO del stage, no
+      // descendiente, asi que ahi la propiedad no le llegaba a la copia. Las custom
+      // properties heredan, de modo que el stage y sus capas la siguen leyendo igual.
+      film.style.setProperty('--film-exit', exitRamp.toFixed(4));
       const exitHysteresis = window.innerHeight * .04;
       filmExit = filmExit ? cursor > filmExitBoundary - exitHysteresis : cursor >= filmExitBoundary + exitHysteresis;
       const sceneAttr = filmExit ? '4' : String(activeIndex);
